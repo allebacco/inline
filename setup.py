@@ -1,7 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # -*- coding:utf-8 -*-
 
-from distutils.core import setup
+#from distutils.core import setup
+
+from setuptools import setup
 
 from inline import __version__ as version
 

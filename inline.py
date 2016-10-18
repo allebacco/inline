@@ -5,17 +5,19 @@ import atexit
 import ctypes
 import distutils.ccompiler
 import os.path
+import os
 import platform
 import shutil
 import sys
 import tempfile
+import stat
 
 
 __version__ = '0.0.1'
 
 
-def c(source, libraries=[]):
-    r"""
+def c(source, libraries=[], include_dirs=None, lib_dirs=None):
+    """
     >>> c('int add(int a, int b) {return a + b;}').add(40, 2)
     42
     >>> sqrt = c('''
@@ -26,23 +28,23 @@ def c(source, libraries=[]):
     >>> sqrt(ctypes.c_double(400.0))
     20.0
     """
-    path = _cc_build_shared_lib(source, '.c', libraries)
+    path = _cc_build_shared_lib(source, '.c', libraries, include_dirs, lib_dirs)
     return ctypes.cdll.LoadLibrary(path)
 
 
-def cxx(source, libraries=[]):
-    r"""
+def cxx(source, libraries=[], include_dirs=None, lib_dirs=None):
+    """
     >>> cxx('extern "C" { int add(int a, int b) {return a + b;} }').add(40, 2)
     42
     """
-    path = _cc_build_shared_lib(source, '.cc', libraries)
-    return ctypes.cdll.LoadLibrary(path)
+    path = _cc_build_shared_lib(source, '.cpp', libraries, include_dirs, lib_dirs)
+    return ctypes.pydll.LoadLibrary(path)
 
 cpp = cxx  # alias
 
 
 def python(source):
-    r"""
+    """
     >>> python('def add(a, b): return a + b').add(40, 2)
     42
     """
@@ -51,21 +53,27 @@ def python(source):
     return obj
 
 
-def _cc_build_shared_lib(source, suffix, libraries):
-    tempdir = tempfile.mkdtemp()
-    atexit.register(lambda: shutil.rmtree(tempdir))
+def _cc_build_shared_lib(source, suffix, libraries, include_dirs=None, lib_dirs=None):
+    tempdir = tempfile.mkdtemp(prefix='inline_')
+    print('Creating temp dir', tempdir)
+    #atexit.register(lambda: shutil.rmtree(tempdir))
     cc = distutils.ccompiler.new_compiler()
-    with tempfile.NamedTemporaryFile('w+', suffix=suffix, dir=tempdir) as f:
-        f.write(source)
-        f.seek(0)
-        args = []
-        if platform.system() == 'Linux':
-            args.append('-fPIC')
-        objs = cc.compile((f.name,), tempdir, extra_postargs=args)
-    for library in libraries:
-        cc.add_library(library)
-    cc.link_shared_lib(objs, f.name, tempdir)
-    filename = cc.library_filename(f.name, 'shared')
+    temp_file = tempfile.NamedTemporaryFile('w+', suffix=suffix, dir=tempdir, delete=False)
+    temp_file.write(source)
+    temp_filename_cpp = temp_file.name
+    temp_file.close()
+    assert os.path.exists(temp_filename_cpp)
+    os.chmod(temp_filename_cpp, stat.S_IWRITE)
+    args = []
+    if platform.system() == 'Linux':
+        args.append('-fPIC')
+    elif platform.system() == 'Windows':
+        args.append('/LD')
+    objs = cc.compile([temp_filename_cpp], tempdir, extra_postargs=args, include_dirs=include_dirs)
+    #for library in libraries:
+    #    cc.add_library(library)
+    cc.link_shared_lib(objs, temp_filename_cpp, output_dir=tempdir, libraries=libraries, library_dirs=lib_dirs)
+    filename = cc.library_filename(temp_filename_cpp, 'shared')
     return os.path.join(tempdir, filename)
 
 
