@@ -63,7 +63,7 @@ def _cc_build_shared_lib(source, suffix, libraries, include_dirs=None, lib_dirs=
     temp_filename_cpp = temp_file.name
     temp_file.close()
     assert os.path.exists(temp_filename_cpp)
-    os.chmod(temp_filename_cpp, stat.S_IWRITE)
+    os.chmod(temp_filename_cpp, stat.S_IWRITE | stat.S_IREAD)
     args = []
     if platform.system() == 'Linux':
         args.append('-fPIC')

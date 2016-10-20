@@ -6,15 +6,18 @@ import ctypes
 
 code = r'''
 
-#include <python.h>
+#include <Python.h>
 
-extern "C" __declspec(dllexport) int add(int a, int b)
+//#define API_EXPORT  __declspec(dllexport)
+#define API_EXPORT
+
+extern "C" API_EXPORT int add(int a, int b)
 {
     return a + b;
 }
 
 
-extern "C" __declspec(dllexport) PyObject* pyadd(PyObject* py_a, PyObject* py_b)
+extern "C" API_EXPORT PyObject* pyadd(PyObject* py_a, PyObject* py_b)
 {
     int a = PyLong_AsLong(py_a);
     int b = PyLong_AsLong(py_b);
@@ -29,10 +32,14 @@ int main()
 
 '''
 
-prefix = sys.prefix
-library_dir = os.path.join(sys.prefix, 'libs')
-include_dir = os.path.join(sys.prefix, 'include')
-adder = inline.cxx(code, libraries=['python35'], include_dirs=[include_dir], lib_dirs=[library_dir, sys.prefix])
+library_dir1 = os.path.join(sys.prefix, 'libs')
+library_dir2 = os.path.join(sys.prefix, 'lib')
+include_dir1 = os.path.join(sys.prefix, 'include')
+include_dir2 = os.path.join(sys.prefix, 'include', 'python3.4')
+
+include_dirs = [include_dir1, include_dir2]
+lib_dirs = [library_dir1, library_dir2, sys.prefix]
+adder = inline.cxx(code, libraries=['python3.4m'], include_dirs=include_dirs, lib_dirs=lib_dirs)
 
 result = adder.add(40, 2)
 
